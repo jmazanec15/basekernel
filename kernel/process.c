@@ -313,7 +313,10 @@ void process_exit(int code)
 	current->exitreason = PROCESS_EXIT_NORMAL;
 
 	// On exit, wake up parent off the grave_watcher list
-	process_wakeup_parent(&grave_watcher_list, current->ppid);
+	if (current->ppid)
+	{
+		process_wakeup_parent(&grave_watcher_list, current->ppid);
+	}
 	process_switch(PROCESS_STATE_GRAVE);
 }
 
