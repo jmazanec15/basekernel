@@ -4,6 +4,8 @@ LIBRARY_SOURCES=$(wildcard library/*.c)
 LIBRARY_HEADERS=$(wildcard library/*.h)
 USER_SOURCES=$(wildcard user/*.c)
 USER_PROGRAMS=$(USER_SOURCES:c=exe)
+TEST_SOURCES=$(wildcard user/tests/*.c)
+TEST_PROGRAMS=$(TEST_SOURCES:c=exe)
 KERNEL_SOURCES=$(wildcard kernel/*.[chS])
 
 all: basekernel.iso
@@ -23,14 +25,18 @@ library/baselib.a: $(LIBRARY_SOURCES) $(LIBRARY_HEADERS)
 $(USER_PROGRAMS): $(USER_SOURCES) library/baselib.a $(LIBRARY_HEADERS)
 	cd user && make
 
+$(TEST_PROGRAMS): $(TEST_SOURCES) library/baselib.a $(LIBRARY_HEADERS)
+	cd user/tests && make
+
 kernel/basekernel.img: $(KERNEL_SOURCES) $(LIBRARY_HEADERS)
 	cd kernel && make
 
-image: kernel/basekernel.img $(USER_PROGRAMS)
+image: kernel/basekernel.img $(USER_PROGRAMS) $(TEST_PROGRAMS)
 	rm -rf image
-	mkdir image image/boot image/bin image/data
+	mkdir image image/boot image/bin image/data image/bin/tests
 	cp kernel/basekernel.img image/boot
 	cp $(USER_PROGRAMS) image/bin
+	cp $(TEST_PROGRAMS) image/bin/tests
 	head -2000 /usr/share/dict/words > image/data/words
 
 basekernel.iso: image
@@ -41,3 +47,4 @@ clean:
 	cd kernel && make clean
 	cd library && make clean
 	cd user && make clean
+	cd user/tests && make clean
