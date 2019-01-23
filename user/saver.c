@@ -5,7 +5,10 @@ See the file LICENSE for details.
 */
 
 /*
-A fun graphics demo that features a line segment bouncing around the screen.
+	A fun graphics demo that features a line segment bouncing around the screen.
+	The implementation and use cases are very similar to ball.c. It could potentially
+	be used as a screen save. It demonstrates how to build a flexible graphics
+	program
 */
 
 #include "library/syscalls.h"
@@ -14,11 +17,13 @@ A fun graphics demo that features a line segment bouncing around the screen.
 
 typedef unsigned int uint32_t;
 
+/* Function declarations */
 uint32_t randint(uint32_t min, uint32_t max);
 void move(int *x, int *d, int min, int max);
 
 int main(int argc, char *argv[])
 {
+	/* Initialize variables */
 	int r = 255;
 	int g = 0;
 	int b = 0;
@@ -33,18 +38,20 @@ int main(int argc, char *argv[])
 	int dr = -1;
 	int dg = 2;
 	int db = 3;
+	int dims[2], width, height;
 
-	int dims[2];
+	/* Get dimensions of the screen */
 	syscall_object_size(KNO_STDWIN, dims, 2);
+	width = dims[0];
+	height = dims[1];
 
-	int width = dims[0];
-	int height = dims[1];
-
+	/* Setup the window */
 	draw_window(KNO_STDWIN);
 	draw_clear(0, 0, width, height);
 	draw_flush();
 
-	char stop = -1;
+	/* Execute animation */
+	char stop = -1; // used to stop while loop
 	while(stop == -1) {
 		move(&x1, &dx1, 0, width - 1);
 		move(&y1, &dy1, 0, height - 1);
@@ -61,14 +68,18 @@ int main(int argc, char *argv[])
 		syscall_process_sleep(25);
 		syscall_object_read_nonblock(KNO_STDIN,&stop, 1);
 	}
+
+	/* Clean up and exit */
 	draw_clear(0, 0, width, height);
 	draw_color(255, 255, 255);
 	draw_flush();
 	return 0;
 }
 
+/* Helper functions */
 uint32_t randint(uint32_t min, uint32_t max)
 {
+	/* Generate random integer */
 	static uint32_t state = 0xF3DC1A24;
 	state = (state * 1299721) + 29443;
 	return min + ((state >> 16) % (max - min + 1));
@@ -76,6 +87,7 @@ uint32_t randint(uint32_t min, uint32_t max)
 
 void move(int *x, int *d, int min, int max)
 {
+	/* Move the coords randomly */
 	*x += *d;
 	if(*x < min) {
 		*x = min;

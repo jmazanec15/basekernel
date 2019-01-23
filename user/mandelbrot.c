@@ -14,14 +14,16 @@ See the file LICENSE for details.
 #define STEPS 5
 
 /*
-	Compute and graph the mandelbrot set
+	Graphics demo where we compute and graph a portion of the mandelbrot set.
 */
 
+/* Representation of a complex number */
 typedef struct Complex {
 	float r;
 	float i;
 } Complex;
 
+/* Function declarations */
 int in_set(Complex c);
 void plot_point(int iter_val, int j, int k);
 
@@ -57,6 +59,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+/* Helper functions */
 int in_set(Complex c)
 {
 	/*

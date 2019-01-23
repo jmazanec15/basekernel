@@ -4,18 +4,18 @@ This software is distributed under the GNU General Public License.
 See the file LICENSE for details.
 */
 
-
-#include "library/syscalls.h"
-#include "library/string.h"
-#include "library/user-io.h"
-
 /*
 	Have a list of programs and windows that we want to run in certain sized windows
 	and place them across the screen
 */
 
-#define num_programs 4
+#include "library/syscalls.h"
+#include "library/string.h"
+#include "library/user-io.h"
 
+#define NUM_PROGRAMS 4
+
+/* Struct for programs run in windows */
 typedef struct program {
 	int w;
 	int h;
@@ -32,19 +32,17 @@ void merge(program * arr, int l, int m, int r);
 
 int main(int argc, char *argv[])
 {
-	/* Eventually, programs wont be hardcoded */
+	/* Eventually, programs will not be hardcoded */
 	const char *args1[] = { "/bin/snake.exe" };
 	const char *args2[] = { "/bin/clock.exe", "08:40" };
 	const char *args3[] = { "/bin/shell.exe" };
 	const char *args4[] = { "/bin/mandelbrot.exe" };
 
-
-	int padding = 4;
 	program programs[] = {
-			{ .w = 55 , .h = 25 , .exec = "bin/clock.exe", .args = args2, .argc = 2 },
-			{ .w = 500, .h = 400, .exec = "bin/shell.exe", .args = args3, .argc = 3 },
-			{ .w = 200, .h = 200, .exec = "bin/snake.exe", .args = args1, .argc = 1 },
-			{ .w = 400, .h = 400, .exec = "bin/mandelbrot.exe", .args = args4, .argc = 1 }
+			{ .w = 55 , .h = 25 , .exec = args2[0], .args = args2, .argc = sizeof(args2)/sizeof(char *) },
+			{ .w = 500, .h = 400, .exec = args3[0], .args = args3, .argc = sizeof(args3)/sizeof(char *) },
+			{ .w = 200, .h = 200, .exec = args1[0], .args = args1, .argc = sizeof(args1)/sizeof(char *) },
+			{ .w = 400, .h = 400, .exec = args4[0], .args = args4, .argc = sizeof(args4)/sizeof(char *) }
 	};
 
 
@@ -57,17 +55,18 @@ int main(int argc, char *argv[])
 
 	/* Sort programs in order of biggest height to smallest with smaller width being tie breaker */
 	int left = 0;
-	int right = num_programs-1;
+	int right = NUM_PROGRAMS-1;
 	mergeSort(programs, left, right);
 
 	/* Packing algorithm - First fit decreasing height - doesnt fit, skip it */
 	int spacing = 6;
-	int current_pos[num_programs][2] = {{ 0 }}; // for each row, keep track of the current x position and height
-	int placement[num_programs][3] = {{ 0 }}; // (x, y, valid) of specific program
+	int padding = 4;
+	int current_pos[NUM_PROGRAMS][2] = {{ 0 }}; // for each row, keep track of the current x position and height
+	int placement[NUM_PROGRAMS][3] = {{ 0 }}; // (x, y, valid) of specific program
 	int p_i, row;
 
-	for (p_i = 0; p_i < num_programs; ++p_i) {
-		for (row = 0; row < num_programs; ++row) {
+	for (p_i = 0; p_i < NUM_PROGRAMS; ++p_i) {
+		for (row = 0; row < NUM_PROGRAMS; ++row) {
 			if (current_pos[row][0] + programs[p_i].w + 4*padding <= std_dims[0]) {
 				// Program can be placed
 				// If it is the first element in the row, x == 0
@@ -77,7 +76,7 @@ int main(int argc, char *argv[])
 					// If the program overlaps, we cant place it
 					if (current_pos[row][1] + programs[p_i].h + 4*padding > std_dims[1]) {
 						break;
-					} else if (row < num_programs - 1) {
+					} else if (row < NUM_PROGRAMS - 1) {
 						// Otherwise, we can place that element in that row and we can
 						// Set the y position of the next row
 						current_pos[row+1][1] = current_pos[row][1] + spacing + programs[p_i].h + 4*padding;
@@ -93,70 +92,71 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	/* Wrun each program */
-	int pids[num_programs] = { 0 };
-	int fds[num_programs][4] = {{ 0 }};
-	for (p_i = 0; p_i < num_programs; ++p_i) {
+	/*
+		Wrun each program. Setup the corrent file descriptors.
+	*/
+	int pids[NUM_PROGRAMS] = { 0 };
+	int fds[NUM_PROGRAMS][4] = {{ 0 }};
+	for (p_i = 0; p_i < NUM_PROGRAMS; ++p_i) {
 		if (placement[p_i][2] == 0) {
 			printf("INVALID\n");
 			continue;
 		}
 
+		// Use pipes to redirect input
 		fds[p_i][0] = syscall_open_pipe();
 		fds[p_i][3] = syscall_open_window(KNO_STDWIN, placement[p_i][0], placement[p_i][1], programs[p_i].w, programs[p_i].h);
 
-		// Standard output and error get console
+		// Standard output and error
 		fds[p_i][1] = syscall_open_console(fds[p_i][3]);
 		fds[p_i][2] = fds[p_i][1];
 
-		// Take in an array of FD's
+		// Wrun take in the array of FD's and returns a pid
 		pids[p_i] = syscall_process_wrun(programs[p_i].exec, programs[p_i].argc, programs[p_i].args, fds[p_i], 4);
-		draw_window(KNO_STDWIN);
+
+		// Draw the boarder around the newly created window
 		draw_border(placement[p_i][0] - 2*padding, placement[p_i][1] - 2*padding, programs[p_i].w + 4*padding, programs[p_i].h + 4*padding, padding, 255, 255, 255);
 		draw_flush();
 	}
 
-	/* Finally, allow the user to switch between programs*/
+	// Allow the user to switch between programs
 	int p_act = 0;
 	char tin = 0;
 
-	/* Draw green window around active process and start it */
-	draw_window(KNO_STDWIN);
+	// Draw green window around active process and start it
 	draw_border(placement[p_act][0] - 2*padding, placement[p_act][1] - 2*padding, programs[p_act].w + 4*padding, programs[p_act].h + 4*padding, padding, 0, 0, 255);
 	draw_flush();
 
 	while (tin != '~') {
 		if (pids[p_act] == 0) {
-			p_act = (p_act + 1) % num_programs;
+			p_act = (p_act + 1) % NUM_PROGRAMS;
 			continue;
 		}
 
-		/* If tab entered, go to the next process */
+		// If tab entered, go to the next process
 		syscall_object_read(0, &tin, 1);
 		if (tin == '\t') {
-			draw_window(KNO_STDWIN);
 			draw_border(placement[p_act][0] - 2*padding, placement[p_act][1] - 2*padding, programs[p_act].w + 4*padding, programs[p_act].h + 4*padding, padding, 255, 255, 255);
 			draw_flush();
-			p_act = (p_act + 1) % num_programs;
+			p_act = (p_act + 1) % NUM_PROGRAMS;
 
-			/* Draw green window around active process and start it */
-			draw_window(KNO_STDWIN);
+			// Draw green window around active process and start it
 			draw_border(placement[p_act][0] - 2*padding, placement[p_act][1] - 2*padding, programs[p_act].w + 4*padding, programs[p_act].h + 4*padding, padding, 0, 0, 255);
 			draw_flush();
 			draw_color(255, 255, 255);
 			continue;
 		}
-		/* Write 1 character to the correct pipe */
+		// Write 1 character to the correct pipe
 		syscall_object_write(fds[p_act][0], &tin, 1);
 	}
 
-	/* Reap all children processes */
-	for (int i = 0; i < num_programs; ++i)
+	// Reap all children processes
+	for (int i = 0; i < NUM_PROGRAMS; ++i)
 	{
 		syscall_process_reap(pids[i]);
 	}
 
-	/* Clean up the window */
+	// Clean up the window
 	draw_color(255, 255, 255);
 	draw_clear(0, 0, std_dims[0], std_dims[1]);
 	draw_flush();
@@ -177,6 +177,7 @@ void mergeSort(program * arr, int l, int r) {
 
 
 void merge(program * arr, int l, int m, int r) {
+	// helper function for merge
 	int i, j, k;
 	int n1 = m - l + 1;
 	int n2 = r - m;
