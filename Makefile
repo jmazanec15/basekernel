@@ -25,9 +25,6 @@ library/baselib.a: $(LIBRARY_SOURCES) $(LIBRARY_HEADERS)
 $(USER_PROGRAMS): $(USER_SOURCES) library/baselib.a $(LIBRARY_HEADERS)
 	cd user && make
 
-$(TEST_PROGRAMS): $(TEST_SOURCES) library/baselib.a $(LIBRARY_HEADERS)
-	cd user/tests && make
-
 kernel/basekernel.img: $(KERNEL_SOURCES) $(LIBRARY_HEADERS)
 	cd kernel && make
 
@@ -47,4 +44,3 @@ clean:
 	cd kernel && make clean
 	cd library && make clean
 	cd user && make clean
-	cd user/tests && make clean
